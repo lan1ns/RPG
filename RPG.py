@@ -360,13 +360,21 @@ def start_screen_activate():
 
 
 def game():
-    screen = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((1920, 1080),
+                                     pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
     screen.fill((0, 0, 0))
     pygame.display.flip()
     global all_sprites, dwarf
     all_sprites = pygame.sprite.Group()
 
-    dwarf = MainHero(600, 600, 'dwarf', 200, load_image('dwarf_sprite_idle+x.png', -1), 5, 1)
+    for x in range(0, 1920, 43):
+        for y in range(200, 600, 43):
+            tile = pygame.sprite.Sprite()
+            tile.image = load_image('tile.png')
+            tile.rect = x, y
+            all_sprites.add(tile)
+
+    dwarf = MainHero(600, 300, 'dwarf', 200, load_image('dwarf_sprite_idle+x.png', -1), 5, 1)
     dwarf.rect = dwarf.get_coords()
     dwarf_x, dwarf_y = dwarf.get_coords()
     characters = [dwarf]
@@ -384,14 +392,6 @@ def game():
     rmb_ability.rect = 1792, 952
 
     enemies = []
-
-    for i in range(3):
-        sk = (Skeleton(100, 100 * i, 30, load_image('demon_skeleton+y.png', -1), 3, 1))
-        enemies.append(sk)
-        all_sprites.add(sk)
-        characters.append(sk)
-
-    wave = 1
     all_sprites.add(dwarf, f_ability, h_ability, rmb_ability)
 
     clock = pygame.time.Clock()
@@ -402,6 +402,8 @@ def game():
     after_moving = False
     rmb_attacking, f_attacking = False, False
     boss_fight = False
+    level = 0
+    allow_to_spawn = [True, True, True, True]
     while running:
         for event in pygame.event.get():
             if event.type == pygame.KEYDOWN and event.scancode == 1:
@@ -479,13 +481,22 @@ def game():
             continue
 
         if moving_x:
-            if 0 < dwarf_x + int(mv * 300 * mult_x) < 1760:
-                dwarf_x += int(mv * 300 * mult_x)
-                dwarf.move(dwarf_x, dwarf_y)
+            if level != 4:
+                if dwarf_x + int(mv * 300 * mult_x) > 1920:
+                    level += 1
+                    dwarf_x = 0
+                    dwarf.move(dwarf_x, dwarf_y)
+                if 0 < dwarf_x + int(mv * 300 * mult_x):
+                    dwarf_x += int(mv * 300 * mult_x)
+                    dwarf.move(dwarf_x, dwarf_y)
+            else:
+                if 0 < dwarf_x + int(mv * 300 * mult_x) < 1760:
+                    dwarf_x += int(mv * 300 * mult_x)
+                    dwarf.move(dwarf_x, dwarf_y)
             after_moving = True
         if moving_y:
-            if 0 < dwarf_y + int(mv * 300 * mult_y) < 792:
-                dwarf_y += int(mv * 300 * mult_y)
+            if 200 < dwarf_y + int(mv * 250 * mult_y) < 440:
+                dwarf_y += int(mv * 250 * mult_y)
                 dwarf.move(dwarf_x, dwarf_y)
             after_moving = True
         if not moving_x and not moving_y and after_moving:
@@ -600,26 +611,27 @@ def game():
             pygame.draw.rect(screen, pygame.Color('white'), (545, 1011, 610, 40), 5)
             pygame.draw.rect(screen, pygame.Color('red'), (550, 1016, length, 30))
 
-        if not enemies:
-            wave += 1
-            if wave < 4:
-                for i in range(wave * 2):
-                    if i % 2:
-                        x = 100
-                    else:
-                        x = 1760 - 100
-                    sk = (Skeleton(x, 100 * i, 30, load_image('demon_skeleton+y.png', -1), 3, 1))
-                    enemies.append(sk)
-                    all_sprites.add(sk)
-                    characters.append(sk)
-            if wave == 4:
-                imp = Imp(100, 100, 300, load_image('walk_pitchfork_shield+y.png', -1), 4, 1)
+        pygame.display.flip()
+
+        if level > 0 and allow_to_spawn[level - 1]:
+            if level == 4:
+                imp = Imp(1700, 300, 300, load_image('walk_pitchfork_shield+y.png', -1), 4, 1)
                 imp.rect = imp.get_coords()
                 enemies.append(imp)
                 characters.append(imp)
                 all_sprites.add(imp)
+                allow_to_spawn[level - 1] = False
+                continue
+            allow_to_spawn[level - 1] = False
+            y = 200
+            for _ in range(level * 2):
+                sk = (Skeleton(1700, y, 30, load_image('demon_skeleton+y.png', -1), 3, 1))
+                enemies.append(sk)
+                all_sprites.add(sk)
+                characters.append(sk)
+                y += 50
 
-        if wave == 4:
+        if level == 4:
             if not imp.is_alive() and not imp.dead:
                 if dwarf.is_alive():
                     for el in all_sprites:
@@ -629,10 +641,6 @@ def game():
                     win.rect = 0, 0
                     all_sprites.add(win)
                 imp.dead = True
-
-        pygame.display.flip()
-
-    pygame.quit()
 
 
 pygame.init()
